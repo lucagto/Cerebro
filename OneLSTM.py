@@ -1,9 +1,9 @@
 import torch
-import scipy.io
 import pandas as pd
 import torch.nn as nn
 from torch import autograd
 import torch.optim as optim
+from scipy.io import loadmat
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
@@ -20,7 +20,8 @@ N_DIRECTION = 1                                                  # 2 per LSTM bi
 BIDIRECTIONAL = False                                            # True per LSTM bidirectional
 EPOCHS = 100                                                     # cicli per ogni time_series
 DEVICE = torch.device('cpu')                                     # cuda per GPU
-FOLDER_DATASET = "/Users/luca/Desktop/TESI/center_speller"
+FOLDER_DATASET = '/Users/luca/Desktop/TESI/center_speller'
+FILE = '/CenterSpeller_VPiac.mat_1_r_1.mat'
 TRAIN_DATA = ''
 
 
@@ -44,28 +45,34 @@ class Cerebro(torch.nn.Module):
         output = self.softmax(output)
         return output
 
+# Caricamento File funzionante
+# mat = loadmat(FOLDER_DATASET + '/CenterSpeller_VPiac.mat_1_r_1.mat')
+# mat = torch.from_numpy((mat['val']))
 
 class CerebroData(Dataset):
-    def __init__(self, folder_dataset, size=(N_CHANNEL,INPUT_SIZE)):
-        self.files = glob(folder_dataset)
+    def __init__(self, folder_dataset, mat_file, size=(N_CHANNEL, INPUT_SIZE)):
+        self.file = loadmat(folder_dataset + mat_file)
+        self.folder_dataset = folder_dataset
         self.size = size
 
     def __len__(self):
         return len(self)
 
     def __getitem__(self, index):
-        mat = pd.np.asarray(scipy.io.loadmat('file.mat'))
-        label = self.files[index]
+        mat = loadmat(FOLDER_DATASET + '/CenterSpeller_VPiac.mat_1_r_1.mat')
+        mat = torch.from_numpy((mat['val']))
+        label = self.file[index]
         return mat, label
 
 
-X = Cerebro()
-# X = Cerebro().cuda                # on GPU
-optimizer = torch.optim.SGD(X.parameters(), lr=LEARNING_RATE, momentum=0.9)
+X = Cerebro()#.cuda             # on GPU
+optimizer = torch.optim.Adam(X.parameters(), lr=LEARNING_RATE, momentum=0.9)
 criterion = nn.NLLLoss()
 dset_train = CerebroData(FOLDER_DATASET)
 train_loader = DataLoader(dset_train, batch_size=500, shuffle=True, num_workers=1)
 
+train = data_utils.TensorDataset(features, targets)
+train_loader = data_utils.DataLoader(train, batch_size=50, shuffle=True)
 
 def train(epoch):
     X.train()
