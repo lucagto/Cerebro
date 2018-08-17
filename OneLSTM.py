@@ -25,13 +25,12 @@ TRAIN_DATA = ''
 
 
 class Cerebro(torch.nn.Module):
-    def __init__(self, input_size, hidden_state, num_layers, bdirectional, batch, num_categories):
+    def __init__(self, input_size, hidden_state, num_layers, bdirectional, num_categories):
         super(Cerebro, self).__init__()
         self.input_size = input_size
         self.hidden_state = hidden_state
         self.num_layer = num_layers
         self.bdirectional = bdirectional
-        self.batch = batch
         self.num_categories = num_categories
         # 1° livello
         self.lstm = nn.LSTM(input_size, hidden_state, num_layers, bidirectional=bdirectional)
@@ -39,17 +38,18 @@ class Cerebro(torch.nn.Module):
         self.fc = nn.Linear(hidden_state, num_categories)
         # 3° livello classificatore softmax (logSoftmax per poter usare NLLoss)
         self.softmax = nn.LogSoftmax()
-        # self.dropout_layer = nn.Dropout(p=0.2)
+        self.dropout_layer = nn.Dropout(p=0.2)
 
-    def forward(self):
+    def forward(self, batch):
         if self.bdirectional:
             direction = 2
         else:
             direction = 1
-        h_0 = autograd.Variable(torch.zeros(self.num_layer * direction, self.batch, self.hidden_state))
-        c_0 = autograd.Variable(torch.zeros(self.num_layer * direction, self.batch, self.hidden_state))
+        h_0 = autograd.Variable(torch.zeros(self.num_layer * direction, batch, self.hidden_state))
+        c_0 = autograd.Variable(torch.zeros(self.num_layer * direction, batch, self.hidden_state))
         output, (h_n, c_n) = self.lstm(input, (h_0, c_0))
         # output = self.dropout_layer(hn[-1])
+        output = self.dropout_layer(h_n[-1])
         output = self.fc(output)
         output = self.softmax(output)
         return output
@@ -60,9 +60,10 @@ class Cerebro(torch.nn.Module):
 
 
 class CerebroData(Dataset):
-    def __init__(self, folder_dataset, mat_file, size=(N_CHANNEL, INPUT_SIZE)):
-        self.file = loadmat(folder_dataset + mat_file)
+    def __init__(self, folder_dataset, file, size=(N_CHANNEL, INPUT_SIZE)):
         self.folder_dataset = folder_dataset
+        mat = loadmat(folder_dataset + file)
+        self.file = torch.from_numpy((mat['val']))
         self.size = size
 
     def __len__(self):
@@ -75,14 +76,11 @@ class CerebroData(Dataset):
         return mat, label
 
 
-X = Cerebro(INPUT_SIZE, H_STATE, N_LAYERS, BIDIRECTIONAL, BATCH, N_CATEGORIES)#.cuda             # on GPU
+X = Cerebro(INPUT_SIZE, H_STATE, N_LAYERS, BIDIRECTIONAL, N_CATEGORIES)#.cuda             # on GPU
 optimizer = torch.optim.Adam(X.parameters(), lr=LEARNING_RATE)
 criterion = nn.NLLLoss()
-dset_train = CerebroData(FOLDER_DATASET)
-train_loader = DataLoader(dset_train, batch_size=500, shuffle=True, num_workers=1)
-
-train = data_utils.TensorDataset(features, targets)
-train_loader = data_utils.DataLoader(train, batch_size=50, shuffle=True)
+train = CerebroData(FOLDER_DATASET, FILE)
+train_loader = DataLoader(train, batch_size=500, shuffle=True, num_workers=1)
 
 def train(epoch):
     X.train()
